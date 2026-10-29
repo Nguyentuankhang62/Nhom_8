@@ -255,6 +255,3 @@ Bảng phân công trách nhiệm nhiệm vụ 6 thành viên trong nhóm:
 | 4 | **Nguyễn Văn Việt** | File Manager | `Code/storage/` | File Management & Overwrite Spec |
 | 5 | **Lê Tiến Đạt** | Metrics & Error Handling | `Code/utils/` | Error Handling & Speed Metrics |
 | 6 | **Trần Đức Anh** | Testing & QA | `Code/tests/` | Software Test Report, Slide & Final Report |
-
----
-*Tài liệu được biên soạn phục vụ cho Đồ án môn học Lập trình mạng - Đề tài UDM_11.*
