@@ -1,4 +1,4 @@
-# UDM_11 – Application Download Nhiều File (TCP Socket & Client–Server)
+# UDM_11 – Download Nhiều File (TCP Socket & Client–Server)
 
 Ứng dụng quản lý và truyền tải đồng thời nhiều tệp tin qua mạng theo mô hình Client–Server, sử dụng giao thức TCP Socket kết hợp giao diện đồ họa (GUI), cơ chế hàng đợi (Queue Management), xử lý đa luồng (Multi-threading) và bẫy lỗi độc lập.
 
