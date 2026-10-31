@@ -1,0 +1,2 @@
+# Thư viện hỗ trợ kéo thả cho giao diện Tkinter (Client GUI)
+tkinterdnd2>=0.3.0
