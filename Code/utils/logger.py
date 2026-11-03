@@ -4,16 +4,15 @@ from pathlib import Path
 
 
 def get_logger(name="UDM_11", log_file="logs/app.log"):
-    """Tạo logger ghi log ra màn hình và file."""
+    """Tạo logger ghi thông báo ra console và file."""
 
     logger = logging.getLogger(name)
-
-    # Tránh thêm handler trùng lặp khi gọi nhiều lần.
-    if logger.handlers:
-        return logger
-
     logger.setLevel(logging.INFO)
     logger.propagate = False
+
+    # Nếu logger đã có handler thì không thêm handler trùng.
+    if logger.handlers:
+        return logger
 
     log_path = Path(log_file)
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -38,3 +37,10 @@ def get_logger(name="UDM_11", log_file="logs/app.log"):
     logger.addHandler(console_handler)
 
     return logger
+
+
+def close_logger(logger):
+    """Đóng và gỡ các handler của logger khi không còn sử dụng."""
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+        handler.close()
