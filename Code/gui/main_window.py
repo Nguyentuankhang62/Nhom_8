@@ -254,6 +254,13 @@ class MainWindow:
             )
             return
 
+        if self.is_downloading and 0 in selected:
+            messagebox.showwarning(
+                "Thông báo",
+                "Không thể xóa file đang được xử lý!"
+            )
+            return
+
         for index in reversed(selected):
             self.queue_listbox.delete(index)
 
@@ -311,11 +318,16 @@ class MainWindow:
             self.root.after(200, self.update_progress)
 
     def finish_download(self):
-        self.queue_listbox.delete(0)
+        finished_file = self.current_file
+        if (
+            self.queue_listbox.size() > 0
+            and self.queue_listbox.get(0) == finished_file
+        ):
+            self.queue_listbox.delete(0)
 
         self.progress["value"] = 100
         self.progress_label.config(
-            text=f"Hoàn thành: {self.current_file}"
+            text=f"Hoàn thành: {finished_file}"
         )
 
         self.is_downloading = False
