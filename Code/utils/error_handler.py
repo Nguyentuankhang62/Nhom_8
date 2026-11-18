@@ -9,13 +9,16 @@ class NetworkErrorHandler:
     """Phân loại và ghi nhận lỗi mạng, lỗi file."""
 
     def __init__(self, logger=None):
-        self.logger = logger or get_logger()
+        self.logger = logger if logger is not None else get_logger()
 
     def handle_error(self, error, filename=None):
         """
         Phân loại lỗi và trả về thông tin để module gọi xử lý.
         Không tự dừng hàng đợi hoặc ứng dụng.
         """
+        if not isinstance(error, BaseException):
+            raise TypeError("error phải là một đối tượng ngoại lệ.")
+
         if isinstance(error, (socket.timeout, TimeoutError)):
             error_type = "TIMEOUT"
             message = "Kết nối quá thời gian chờ."
@@ -59,7 +62,7 @@ class NetworkErrorHandler:
         self.logger.error(
             "Lỗi %s | File: %s | Chi tiết: %s",
             error_type,
-            filename or "N/A",
+            filename if filename is not None else "N/A",
             error,
         )
 
@@ -73,6 +76,13 @@ class NetworkErrorHandler:
 
     def check_file_exists(self, filepath):
         """Kiểm tra đường dẫn có trỏ đến file tồn tại hay không."""
+        if not isinstance(filepath, (str, Path)):
+            self.logger.warning(
+                "Đường dẫn file không hợp lệ: %r",
+                filepath,
+            )
+            return False
+
         try:
             return Path(filepath).is_file()
         except (OSError, ValueError, TypeError) as error:
