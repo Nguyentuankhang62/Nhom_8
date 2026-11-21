@@ -1,4 +1,3 @@
-
 __pycache__/
 *.py[cod]
 .venv/
@@ -6,3 +5,5 @@ venv/
 .vscode/
 .env
 *.log
+logs/
+*.part
