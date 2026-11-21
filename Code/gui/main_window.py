@@ -29,6 +29,7 @@ class MainWindow:
         self._ui_events = queue.Queue()
         self._file_sizes = {}
         self._destination_names = set()
+        self._task_destinations = {}
 
         self.create_widgets()
         self.queue_manager = DownloadQueueManager(
@@ -198,6 +199,28 @@ class MainWindow:
             self.download_table_frame, self.download_tree
         )
 
+        download_actions = ttk.Frame(self.download_frame)
+        download_actions.pack(fill="x", pady=(6, 0))
+        self.queue_summary_label = ttk.Label(
+            download_actions, text="Tổng: 0 tệp"
+        )
+        self.queue_summary_label.pack(side="left")
+        ttk.Button(
+            download_actions,
+            text="Xóa mục đã chọn",
+            command=self._remove_selected_downloads,
+        ).pack(side="right", padx=(4, 0))
+        ttk.Button(
+            download_actions,
+            text="Xóa (đã xong / lỗi)",
+            command=self._clear_finished_downloads,
+        ).pack(side="right", padx=(4, 0))
+        ttk.Button(
+            download_actions,
+            text="Thử lại mục lỗi",
+            command=self._retry_failed_downloads,
+        ).pack(side="right")
+
     @staticmethod
     def _add_tree_scrollbars(parent, tree):
         """Đặt Treeview và scrollbar trong đúng parent để widget được vẽ ổn định."""
@@ -215,6 +238,9 @@ class MainWindow:
         if address is None:
             return
         self.connect_button.configure(state="disabled")
+        self.status_label.configure(
+            text="Trạng thái: Đang kết nối...", foreground="#805600"
+        )
         self._start_list_request(*address)
 
     def refresh_server_files(self):
@@ -223,6 +249,9 @@ class MainWindow:
         if address is None:
             return
         self.refresh_button.configure(state="disabled")
+        self.status_label.configure(
+            text="Trạng thái: Đang làm mới danh sách...", foreground="#805600"
+        )
         self._start_list_request(*address)
 
     def _server_address(self):
@@ -373,6 +402,10 @@ class MainWindow:
                 "Thông báo", "Vui lòng kết nối Server trước khi tải!"
             )
             return
+        address = self._server_address()
+        if address is None:
+            return
+        host, port = address
         destination = Path(self.destination_var.get()).expanduser()
         if not destination.is_dir():
             messagebox.showerror(
@@ -384,7 +417,11 @@ class MainWindow:
             target = self._resolve_destination(filename, destination)
             if target is None:
                 continue
-            self._destination_names.add(self._destination_key(target))
+            if self.download_tree.exists(filename):
+                self.download_tree.delete(filename)
+            dest_key = self._destination_key(target)
+            self._destination_names.add(dest_key)
+            self._task_destinations[filename] = dest_key
             self.download_tree.insert(
                 "",
                 "end",
@@ -404,18 +441,19 @@ class MainWindow:
                     DownloadTask(
                         filename=filename,
                         destination=target,
-                        host=self.ip_entry.get().strip(),
-                        port=int(self.port_entry.get().strip()),
+                        host=host,
+                        port=port,
                     )
                 )
             except RuntimeError as exc:
                 self._apply_download_update(
                     filename, 0, "—", "—", f"Thất bại: {exc}", None
                 )
+        self._refresh_queue_summary()
 
     def _resolve_destination(self, filename, directory):
         """Áp dụng Ask, Auto-rename, Overwrite hoặc Skip trước khi tạo tác vụ."""
-        if self.download_tree.exists(filename):
+        if self.download_tree.exists(filename) and self._is_task_active(filename):
             return None
 
         target = directory / filename
@@ -485,13 +523,92 @@ class MainWindow:
         status_lower = status_str.casefold()
         if status_lower.startswith("thất bại"):
             tag = "failure"
+            self._release_destination(filename)
         elif status_str == "Thành công":
             tag = "success"
+            self._release_destination(filename)
         elif status_str == "Đang xử lý":
             tag = "processing"
         else:
             tag = "waiting"
         self.download_tree.item(filename, values=values, tags=(tag,))
+        self._refresh_queue_summary()
+
+    def _is_task_active(self, item_id):
+        """Kiểm tra dòng trong bảng tải có đang chờ hoặc đang tải hay không."""
+        if not hasattr(self.download_tree, "item"):
+            return True
+        values = self.download_tree.item(item_id, "values")
+        if len(values) < 6:
+            return True
+        return values[5] in ("Đang chờ", "Đang xử lý")
+
+    def _release_destination(self, filename):
+        """Giải phóng đường dẫn đã giữ chỗ sau khi tác vụ kết thúc hoặc bị xóa."""
+        dest_key = self._task_destinations.pop(filename, None)
+        if dest_key:
+            self._destination_names.discard(dest_key)
+
+    def _remove_selected_downloads(self):
+        """Xóa các mục đã chọn khỏi bảng tải nếu không phải đang chờ hoặc đang tải."""
+        selected = self.download_tree.selection()
+        if not selected:
+            messagebox.showwarning("Thông báo", "Vui lòng chọn mục cần xóa!")
+            return
+        if any(self._is_task_active(item_id) for item_id in selected):
+            messagebox.showwarning(
+                "Thông báo", "Không thể xóa file đang chờ hoặc đang tải!"
+            )
+            return
+        for item_id in selected:
+            self._release_destination(item_id)
+            self.download_tree.delete(item_id)
+        self._refresh_queue_summary()
+
+    def _clear_finished_downloads(self):
+        """Dọn toàn bộ các dòng đã hoàn thành hoặc thất bại khỏi bảng tải."""
+        for item_id in list(self.download_tree.get_children()):
+            if not self._is_task_active(item_id):
+                self._release_destination(item_id)
+                self.download_tree.delete(item_id)
+        self._refresh_queue_summary()
+
+    def _retry_failed_downloads(self):
+        """Đưa các mục thất bại đang chọn (hoặc tất cả mục lỗi) vào hàng đợi lại."""
+        candidates = self.download_tree.selection() or self.download_tree.get_children()
+        failed_files = []
+        for item_id in candidates:
+            values = self.download_tree.item(item_id, "values")
+            if len(values) >= 6 and str(values[5]).casefold().startswith("thất bại"):
+                failed_files.append(values[0])
+        if not failed_files:
+            messagebox.showinfo("Thông báo", "Không có mục lỗi nào để thử lại.")
+            return
+        self.enqueue_server_files(failed_files)
+
+    def _refresh_queue_summary(self):
+        """Cập nhật dòng thống kê nhanh số lượng tệp theo trạng thái trong bảng tải."""
+        if not hasattr(self, "queue_summary_label"):
+            return
+        items = self.download_tree.get_children()
+        waiting = processing = success = failure = 0
+        for item_id in items:
+            values = self.download_tree.item(item_id, "values")
+            status = str(values[5]) if len(values) >= 6 else ""
+            if status == "Đang chờ":
+                waiting += 1
+            elif status == "Đang xử lý":
+                processing += 1
+            elif status == "Thành công":
+                success += 1
+            elif status.casefold().startswith("thất bại"):
+                failure += 1
+        self.queue_summary_label.configure(
+            text=(
+                f"Tổng: {len(items)} tệp | Chờ: {waiting} | Đang tải: {processing} | "
+                f"Xong: {success} | Lỗi: {failure}"
+            )
+        )
 
     def _set_concurrency(self):
         """Xác thực giá trị Spinbox rồi áp dụng giới hạn mới cho hàng đợi."""
