@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import socket
 import threading
+import time
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from Code.utils.error_handler import NetworkErrorHandler
 from Code.utils.speed_tracker import SpeedTracker
 
 
@@ -39,6 +41,7 @@ class DownloadQueueManager:
 
         self.on_update = on_update
         self.max_concurrent = max_concurrent
+        self.error_handler = NetworkErrorHandler()
         self._tasks = deque()
         self._condition = threading.Condition()
         self._active_count = 0
@@ -99,8 +102,11 @@ class DownloadQueueManager:
             try:
                 self._download(task)
             except Exception as exc:
+                info = self.error_handler.handle_error(exc, filename=task.filename)
+                detail = str(exc).strip()
+                reason = detail if info["error_type"] == "OS_ERROR" and detail else info["message"]
                 self.on_update(
-                    task.filename, 0.0, "—", "—", f"Thất bại: {exc}"
+                    task.filename, 0.0, "—", "—", f"Thất bại: {reason}"
                 )
             finally:
                 with self._condition:
@@ -145,6 +151,7 @@ class DownloadQueueManager:
                     self._format_size(total_size),
                 )
                 with temporary_path.open("wb") as output_file:
+                    last_report = time.monotonic()
                     while received < total_size:
                         chunk = connection.recv(
                             min(self.CHUNK_SIZE, total_size - received)
@@ -156,10 +163,15 @@ class DownloadQueueManager:
                         output_file.write(chunk)
                         received += len(chunk)
                         tracker.update(len(chunk))
-                        self._report_progress(
-                            task.filename, tracker, total_size
-                        )
+                        # Giới hạn tần suất gửi cập nhật để tránh nghẽn luồng giao diện.
+                        now = time.monotonic()
+                        if received == total_size or now - last_report >= 0.08:
+                            self._report_progress(
+                                task.filename, tracker, total_size
+                            )
+                            last_report = now
             temporary_path.replace(task.destination)
+            self.error_handler.logger.info("Tải hoàn tất: %s", task.filename)
             self.on_update(
                 task.filename, 100.0, self._speed_text(tracker),
                 "0 giây", "Thành công"

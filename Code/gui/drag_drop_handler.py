@@ -15,11 +15,13 @@ class DragDropHandler:
         self.main_window = main_window
         self.server_tree = main_window.server_tree
         self.drag_items = ()
+        self.pressed_row = ""
         self.press_x = 0
         self.press_y = 0
         self.drag_started = False
         self.drag_window = None
         self.drag_label = None
+        self._base_download_title = "Khu vực 2 - Danh sách file cần download"
 
     def register(self):
         """Đăng ký kéo-thả chuột nội bộ và native drop trên vùng Download.
@@ -39,10 +41,16 @@ class DragDropHandler:
             self.main_window.download_scrollbar,
             self.main_window.download_frame,
         ):
-            widget.drop_target_register(DND_FILES)
-            widget.dnd_bind("<<DropEnter>>", self._on_drop_enter)
-            widget.dnd_bind("<<DropPosition>>", self._on_drop_position)
-            widget.dnd_bind("<<Drop>>", self._on_external_drop)
+            if not hasattr(widget, "drop_target_register"):
+                continue
+            try:
+                widget.drop_target_register(DND_FILES)
+                widget.dnd_bind("<<DropEnter>>", self._on_drop_enter)
+                widget.dnd_bind("<<DropPosition>>", self._on_drop_position)
+                widget.dnd_bind("<<DropLeave>>", self._on_drop_leave)
+                widget.dnd_bind("<<Drop>>", self._on_external_drop)
+            except tk.TclError:
+                break
 
     @staticmethod
     def _accepted_action(event):
@@ -51,14 +59,20 @@ class DragDropHandler:
 
     def _on_drop_enter(self, event):
         """Báo hệ điều hành rằng vùng Download có thể nhận danh sách file."""
+        self._set_drop_highlight(True)
         return self._accepted_action(event)
 
     def _on_drop_position(self, event):
         """Giữ nguyên action được thương lượng khi con trỏ di chuyển trên vùng nhận."""
         return self._accepted_action(event)
 
+    def _on_drop_leave(self, _event):
+        """Khôi phục tiêu đề vùng Download khi kéo rời khỏi khung nhận."""
+        self._set_drop_highlight(False)
+
     def _on_external_drop(self, event):
         """Tách đường dẫn Explorer, chỉ nhận file hợp lệ trùng tên với file Server."""
+        self._set_drop_highlight(False)
         try:
             # splitlist hiểu đúng các đường dẫn Tcl có khoảng trắng được bọc trong {}.
             file_paths = event.widget.tk.splitlist(event.data)
@@ -108,10 +122,15 @@ class DragDropHandler:
         self.press_x = event.x_root
         self.press_y = event.y_root
         self.drag_started = False
+        self.pressed_row = ""
+        if event.state & 0x5:
+            self.drag_items = ()
+            return None
         row_id = self.server_tree.identify_row(event.y)
         selected_items = self.server_tree.selection()
         if row_id and row_id in selected_items:
             self.drag_items = selected_items
+            self.pressed_row = row_id
             return "break"
         # Với dòng chưa chọn, để Treeview xử lý click rồi lấy vùng chọn mới khi kéo.
         self.drag_items = ()
@@ -133,6 +152,10 @@ class DragDropHandler:
         self.drag_started = True
         self._show_drag_window(event.x_root, event.y_root)
         self.server_tree.configure(cursor="hand2")
+        target = self.main_window.root.winfo_containing(
+            event.x_root, event.y_root
+        )
+        self._set_drop_highlight(self._is_download_target(target))
 
     def _show_drag_window(self, x_root, y_root):
         """Hiện nhãn nhỏ bám theo con trỏ để báo số tệp đang kéo."""
@@ -160,8 +183,14 @@ class DragDropHandler:
         """Chỉ chuyển tệp vào hàng đợi khi thả trong vùng Download."""
         try:
             if not self.drag_started:
+                if self.pressed_row and self.server_tree.exists(self.pressed_row):
+                    self.server_tree.selection_set(self.pressed_row)
+                    self.server_tree.focus(self.pressed_row)
                 return
 
+            # Ẩn nhãn nổi trước để không che mất widget đích khi dò tọa độ thả.
+            if self.drag_window is not None and self.drag_window.winfo_exists():
+                self.drag_window.destroy()
             target = self.main_window.root.winfo_containing(
                 event.x_root, event.y_root
             )
@@ -190,12 +219,23 @@ class DragDropHandler:
             widget = getattr(widget, "master", None)
         return False
 
+    def _set_drop_highlight(self, active):
+        """Đổi tiêu đề khung Download để phản hồi vùng thả hợp lệ."""
+        title = (
+            "Khu vực 2 - Thả file vào đây để bắt đầu tải"
+            if active
+            else self._base_download_title
+        )
+        self.main_window.download_frame.configure(text=title)
+
     def _finish_drag(self):
         """Đóng cửa sổ kéo và dọn trạng thái để lần kéo sau hoạt động độc lập."""
         self.server_tree.configure(cursor="")
+        self._set_drop_highlight(False)
         if self.drag_window is not None and self.drag_window.winfo_exists():
             self.drag_window.destroy()
         self.drag_window = None
         self.drag_label = None
         self.drag_items = ()
+        self.pressed_row = ""
         self.drag_started = False

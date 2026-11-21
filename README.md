@@ -154,8 +154,8 @@ Do TCP là giao thức truyền theo dòng Byte (Byte Stream) không tự xác �
 
 1. **Cloning Repository:**
    ```bash
-   git clone https://github.com/[Cần bổ sung URL Repo]/my-downloader-project.git
-   cd my-downloader-project
+   git clone https://github.com/Nguyentuankhang62/Nhom_8.git
+   cd Nhom_8
    ```
 
 2. **Tạo môi trường ảo (Khuyên dùng):**
@@ -178,24 +178,24 @@ Do TCP là giao thức truyền theo dòng Byte (Byte Stream) không tự xác �
 
 * **Địa chỉ IP / Cổng mặc định:**
   * Host Server: `0.0.0.0` (Nghe tất cả các card mạng) hoặc `127.0.0.1` (Chạy local).
-  * Port Server mặc định: `8888` (hoặc cấu hình tùy ý).
-* **Giới hạn số tác vụ tải đồng thời ($N$):** Cấu hình trong file `Code/queue_mgr/queue_manager.py` (Mặc định: `max_concurrent = 2`).
-* **Kích thước khối dữ liệu (Chunk size):** Cấu hình mặc định `4096` bytes hoặc `8192` bytes trong protocol.
+  * Port Server mặc định: `5000` (cấu hình trong `Code/main.py` và ô nhập Port trên Client GUI).
+* **Giới hạn số tác vụ tải đồng thời ($N$):** Mặc định `max_concurrent = 2` (tối đa `16`), cấu hình trong `Code/gui/queue_manager.py` và chỉnh trực tiếp trên giao diện Client.
+* **Kích thước khối dữ liệu (Chunk size):** Server gửi theo khối `4096` bytes (`Code/server/tcp_server.py`), Client nhận theo bộ đệm `65536` bytes (`Code/gui/queue_manager.py`).
 
 ---
 
 ## 9. Hướng Dẫn Sử Dụng (Usage)
 
 ### Bước 1: Khởi chạy Server
-Mở terminal và chạy lệnh khởi động Server (Chỉ định thư mục chia sẻ):
+Mở terminal và chạy lệnh khởi động Server (mặc định chia sẻ thư mục `shared_files/`):
 ```bash
-python -m Code.server.tcp_server
+python main.py
 ```
 
 ### Bước 2: Khởi chạy ứng dụng Client
 Mở terminal thứ hai để khởi chạy giao diện người dùng:
 ```bash
-python main.py
+python -m Code.gui.main_window
 ```
 
 ### Bước 3: Thao tác trên giao diện
