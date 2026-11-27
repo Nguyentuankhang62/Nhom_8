@@ -18,6 +18,7 @@
 11. [Hạn Chế & Phạm Vi Chưa Triển Khai (Limitations)](#11-hạn-chế--phạm-vi-chưa-triển-khai-limitations)
 12. [Hướng Phát Triển (Future Improvements / Roadmap)](#12-hướng-phát-triển-future-improvements--roadmap)
 13. [Thành Viên Đóng Góp (Contributors)](#13-thành-viên-đóng-góp-contributors)
+14. [Video Demo Sản Phẩm](#14-video-demo-sản-phẩm)
 
 ---
 
@@ -121,23 +122,23 @@ my-downloader-project/
 ### 5.1. Bộ Thông Điệp Giao Thức TCP (Message Protocol)
 Do TCP là giao thức truyền theo dòng Byte (Byte Stream) không tự xác định ranh giới gói tin, hệ thống định dạng cấu trúc thông điệp chuẩn bao gồm các lệnh:
 
-* `LIST_FILES`: Client yêu cầu Server trả về danh sách tệp tin sẵn có.
-* `FILE_LIST`: Server phản hồi tên tệp, kích thước và định dạng tệp.
-* `DOWNLOAD [filename]`: Client gửi yêu cầu tải một tệp cụ thể.
-* `FILE_INFO [size]`: Server phản hồi kích thước tệp trước khi truyền dữ liệu.
-* `FILE_DATA [chunk]`: Server truyền khối dữ liệu tệp (Chunk/Buffer) liên tục.
-* `ERROR [code/msg]`: Phản hồi lỗi khi không tìm thấy tệp hoặc mất kết nối.
+* `LIST_FILES\n`: Client yêu cầu Server trả về danh sách tệp tin sẵn có.
+* `FILE_LIST||<count>\n<name1>\n...`: Server phản hồi số lượng và danh sách tên các tệp hiện có.
+* `DOWNLOAD|<filename>\n`: Client gửi yêu cầu tải một tệp cụ thể.
+* `FILE_INFO|<filename>|<size>\n`: Server phản hồi tên và kích thước tệp (byte) trước khi truyền dữ liệu.
+* `<binary_stream>`: Server truyền liên tục đúng `<size>` byte dữ liệu tệp theo từng khối (`4096` bytes).
+* `ERROR|FILE_NOT_FOUND|0\n<message>\n`: Server phản hồi lỗi khi không tìm thấy tệp hoặc lệnh không hợp lệ.
 
 ### 5.2. Luồng Hoạt Động Của Ứng Dụng
 ```text
-[Người dùng] ──> Khởi chạy Server (chỉ định thư mục chia sẻ)
-[Người dùng] ──> Mở Client ──> Nhập IP/Port ──> Kết nối TCP
- Client ───────> Gửi lệnh LIST_FILES ───────> Server
- Client <─────── Phản hồi FILE_LIST <──────── Server (Hiển thị lên danh sách GUI)
-[Người dùng] ──> Kéo thả tệp cần tải ───────> Đưa vào DownloadQueueManager
- QueueMgr ─────> Kích hoạt Task (≤ N slot)──> Tạo kết nối/luồng tải riêng
- Client ───────> Gửi DOWNLOAD [file] ───────> Server
- Client <─────── Nhận FILE_DATA (chunk) <──── Server ──> SpeedTracker (Tính KB/s) ──> FileManager (Ghi đĩa)
+[Người dùng] ──> Khởi chạy Server (python main.py)
+[Người dùng] ──> Mở Client GUI (python -m Code.gui.main_window) ──> Nhập IP/Port ──> Kết nối TCP
+ Client ───────> Gửi lệnh LIST_FILES\n ─────────> Server
+ Client <─────── Phản hồi FILE_LIST||<n> <─────── Server (Hiển thị lên bảng Server)
+[Người dùng] ──> Kéo thả tệp cần tải ───────────> Đưa vào DownloadQueueManager
+ QueueMgr ─────> Kích hoạt Task (≤ N slot) ─────> Mở kết nối TCP tải song song
+ Client ───────> Gửi DOWNLOAD|<filename>\n ─────> Server
+ Client <─────── Nhận FILE_INFO + luồng byte <─── Server ──> SpeedTracker (KB/s, ETA) ──> Lưu tạm .part ──> Đích
 ```
 
 ---
@@ -255,3 +256,9 @@ Bảng phân công trách nhiệm nhiệm vụ 6 thành viên trong nhóm:
 | 4 | **Nguyễn Văn Việt** | File Manager | `Code/storage/` | File Management & Overwrite Spec |
 | 5 | **Lê Tiến Đạt** | Metrics & Error Handling | `Code/utils/` | Error Handling & Speed Metrics |
 | 6 | **Trần Đức Anh** | Testing & QA | `Code/tests/` | Software Test Report, Slide & Final Report |
+
+---
+
+## 14. Video Demo Sản Phẩm
+
+* **Video Demo YouTube (Nhóm 8 – UDM_11):** `[Đang cập nhật link YouTube sau khi ghép hoàn tất]`

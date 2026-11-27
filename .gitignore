@@ -7,3 +7,4 @@ venv/
 *.log
 logs/
 *.part
+shared_files/demo_*
